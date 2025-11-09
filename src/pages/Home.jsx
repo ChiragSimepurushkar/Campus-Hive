@@ -1,7 +1,7 @@
 import React from 'react';
 import { Briefcase, Users, Calendar } from 'lucide-react';
 import Button from '../components/UI/button';
-import Card from '../components/UI/card';
+import Card from '../components/UI/Card';
 
 const HomePage = () => {
   return (
