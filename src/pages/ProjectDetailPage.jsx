@@ -1,112 +1,253 @@
-import React, { useState } from 'react';
-import { ArrowLeft, Heart, Share2, Users, Eye, Clock, MessageCircle, CheckCircle, AlertCircle, Target } from 'lucide-react';
+import React, { useState, useEffect, useContext } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { ArrowLeft, Heart, Share2, Users, Eye, Clock, MessageCircle, CheckCircle, AlertCircle, Target, Send } from 'lucide-react';
+import { MyContext } from '../App.jsx';
+import { fetchDataFromApi, postData } from '../utils/api.js';
 
 const ProjectDetailPage = () => {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const context = useContext(MyContext);
+
   const [activeTab, setActiveTab] = useState('overview');
+  const [loading, setLoading] = useState(true);
+  const [project, setProject] = useState(null);
+  const [members, setMembers] = useState([]);
+  const [comments, setComments] = useState([]);
   const [isLiked, setIsLiked] = useState(false);
-  
-  const project = {
-    title: 'AI-Powered Study Assistant',
-    description: 'Building an intelligent chatbot to help students with their coursework and study schedules. This project aims to leverage modern AI technologies to create a personalized learning companion that understands student needs and provides contextual help.',
-    fullDescription: 'Our AI-Powered Study Assistant is designed to revolutionize how students approach their studies. Using advanced natural language processing and machine learning algorithms, the assistant can understand complex queries, provide relevant resources, and even predict when students might need help based on their study patterns. The system will integrate with popular learning management systems and offer features like automated scheduling, progress tracking, and personalized study recommendations.',
-    status: 'Open',
-    category: 'AI/ML',
-    difficulty: 'Intermediate',
-    skills: ['Python', 'TensorFlow', 'NLP', 'Flask', 'React'],
-    members: [
-      { name: 'Sarah Johnson', role: 'Team Lead', avatar: 'SJ', college: 'MIT', skills: ['Python', 'ML'] },
-      { name: 'Mike Chen', role: 'ML Engineer', avatar: 'MC', college: 'Stanford', skills: ['TensorFlow', 'NLP'] },
-      { name: 'Emma Davis', role: 'Backend Dev', avatar: 'ED', college: 'Berkeley', skills: ['Flask', 'APIs'] }
-    ],
-    maxMembers: 5,
-    likes: 24,
-    views: 156,
-    createdAt: '2 weeks ago',
-    deadline: 'March 15, 2025',
-    college: 'MIT',
-    author: 'Sarah Johnson'
+  const [isBookmarked, setIsBookmarked] = useState(false);
+  const [newComment, setNewComment] = useState('');
+  const [submittingComment, setSubmittingComment] = useState(false);
+
+  // Fetch project data
+  useEffect(() => {
+    const fetchProjectData = async () => {
+      try {
+        setLoading(true);
+        const res = await fetchDataFromApi(`/api/projects/${id}`);
+        
+        if (res.success && res.data) {
+          setProject(res.data);
+        } else {
+          context.openAlertBox('error', res.message || 'Failed to fetch project');
+          navigate('/projects');
+        }
+      } catch (err) {
+        console.error('Error fetching project:', err);
+        context.openAlertBox('error', 'An unexpected error occurred');
+        navigate('/projects');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProjectData();
+  }, [id, navigate, context]);
+
+  // Fetch members when tab changes
+  useEffect(() => {
+    if (activeTab === 'members' && project) {
+      fetchMembers();
+    }
+  }, [activeTab, project]);
+
+  // Fetch comments when tab changes
+  useEffect(() => {
+    if (activeTab === 'discussion' && project) {
+      fetchComments();
+    }
+  }, [activeTab, project]);
+
+  const fetchMembers = async () => {
+    try {
+      const res = await fetchDataFromApi(`/api/members/${id}`);
+      if (res.success && res.data) {
+        setMembers(res.data);
+      }
+    } catch (err) {
+      console.error('Error fetching members:', err);
+    }
   };
 
-  const milestones = [
-    { 
-      title: 'Initial Planning & Research', 
-      status: 'completed', 
-      date: 'Completed 1 week ago',
-      description: 'Project scope defined, tech stack selected, and team roles assigned'
-    },
-    { 
-      title: 'Data Collection & Preprocessing', 
-      status: 'in-progress', 
-      date: 'In Progress',
-      description: 'Gathering training data and preparing datasets for model training'
-    },
-    { 
-      title: 'Model Development', 
-      status: 'upcoming', 
-      date: 'Starting Feb 1',
-      description: 'Building and training the core NLP model'
-    },
-    { 
-      title: 'Frontend Integration', 
-      status: 'upcoming', 
-      date: 'Starting Feb 15',
-      description: 'Developing the user interface and API integration'
-    },
-    { 
-      title: 'Testing & Deployment', 
-      status: 'upcoming', 
-      date: 'Starting Mar 1',
-      description: 'Beta testing with real users and final deployment'
+  const fetchComments = async () => {
+    try {
+      const res = await fetchDataFromApi(`/api/comments/${id}`);
+      if (res.success && res.data) {
+        setComments(res.data);
+      }
+    } catch (err) {
+      console.error('Error fetching comments:', err);
     }
-  ];
+  };
 
-  const requirements = [
-    'Experience with machine learning frameworks (TensorFlow/PyTorch)',
-    'Strong Python programming skills',
-    'Understanding of NLP concepts and techniques',
-    'Passion for education technology',
-    'Good communication and teamwork abilities',
-    'Ability to commit 10-15 hours per week'
-  ];
-
-  const discussions = [
-    {
-      author: 'Sarah Johnson',
-      avatar: 'SJ',
-      time: '2 hours ago',
-      message: 'Hey team! Just uploaded the initial dataset to our shared drive. Please review and let me know if you have any questions.',
-      replies: 2
-    },
-    {
-      author: 'Mike Chen',
-      avatar: 'MC',
-      time: '5 hours ago',
-      message: 'Found a great research paper on conversational AI. Think we should incorporate some of these techniques. Link in the resources channel.',
-      replies: 1
+  const handleLike = async () => {
+    try {
+      const res = await postData('/api/interactions/upvote', { project_id: id });
+      if (res.success) {
+        setIsLiked(res.upvoted);
+        setProject({
+          ...project,
+          upvote_count: res.upvoted ? (project.upvote_count || 0) + 1 : (project.upvote_count || 1) - 1
+        });
+        context.openAlertBox('success', res.message || 'Like updated');
+      }
+    } catch (err) {
+      console.error('Error toggling like:', err);
+      context.openAlertBox('error', 'Failed to update like status');
     }
-  ];
+  };
 
-  const getStatusIcon = (status) => {
-    switch(status) {
-      case 'completed': return <CheckCircle className="text-green-600" size={20} />;
-      case 'in-progress': return <AlertCircle className="text-yellow-600" size={20} />;
-      default: return <Clock className="text-gray-400" size={20} />;
+  const handleBookmark = async () => {
+    try {
+      const res = await postData('/api/interactions/bookmark', { project_id: id });
+      if (res.success) {
+        setIsBookmarked(res.bookmarked);
+        context.openAlertBox('success', res.message || (res.bookmarked ? 'Added to bookmarks' : 'Removed from bookmarks'));
+      }
+    } catch (err) {
+      console.error('Error toggling bookmark:', err);
+      context.openAlertBox('error', 'Failed to update bookmark status');
+    }
+  };
+
+  const handleJoinRequest = async () => {
+    try {
+      // Get current user ID from context or localStorage
+      const userId = context.user?._id;
+      
+      if (!userId) {
+        context.openAlertBox('error', 'Please login to join projects');
+        return;
+      }
+
+      const res = await postData('/api/members/add', { 
+        project_id: id,
+        user_id: userId 
+      });
+      
+      if (res.success) {
+        context.openAlertBox('success', res.message || 'Join request sent successfully!');
+        // Refresh project data to update member count
+        const updatedProject = await fetchDataFromApi(`/api/projects/${id}`);
+        if (updatedProject.success) {
+          setProject(updatedProject.data);
+        }
+      } else {
+        context.openAlertBox('error', res.message || 'Failed to send join request');
+      }
+    } catch (err) {
+      console.error('Error sending join request:', err);
+      context.openAlertBox('error', err.message || 'An unexpected error occurred');
+    }
+  };
+
+  const handleSubmitComment = async (e) => {
+    e.preventDefault();
+    if (!newComment.trim()) return;
+
+    try {
+      setSubmittingComment(true);
+      const res = await postData('/api/comments', { 
+        project_id: id, 
+        content: newComment.trim() 
+      });
+      
+      if (res.success) {
+        setComments([res.data, ...comments]);
+        setNewComment('');
+        // Update comment count in project
+        setProject({
+          ...project,
+          comment_count: (project.comment_count || 0) + 1
+        });
+        context.openAlertBox('success', 'Comment posted successfully!');
+      } else {
+        context.openAlertBox('error', res.message || 'Failed to post comment');
+      }
+    } catch (err) {
+      console.error('Error posting comment:', err);
+      context.openAlertBox('error', 'An unexpected error occurred');
+    } finally {
+      setSubmittingComment(false);
     }
   };
 
   const getStatusColor = (status) => {
     switch(status) {
-      case 'completed': return 'border-green-500';
-      case 'in-progress': return 'border-yellow-500';
-      default: return 'border-gray-300';
+      case 'Completed': return 'bg-green-100 text-green-700';
+      case 'In Progress': return 'bg-yellow-100 text-yellow-700';
+      case 'Hiring': return 'bg-blue-100 text-blue-700';
+      case 'Idea': return 'bg-purple-100 text-purple-700';
+      default: return 'bg-gray-100 text-gray-700';
     }
   };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return 'Unknown';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'short', 
+      day: 'numeric' 
+    });
+  };
+
+  const getTimeAgo = (dateString) => {
+    if (!dateString) return 'Unknown';
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInMs = now - date;
+    const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+    
+    if (diffInDays === 0) return 'Today';
+    if (diffInDays === 1) return 'Yesterday';
+    if (diffInDays < 7) return `${diffInDays} days ago`;
+    if (diffInDays < 30) return `${Math.floor(diffInDays / 7)} weeks ago`;
+    if (diffInDays < 365) return `${Math.floor(diffInDays / 30)} months ago`;
+    return `${Math.floor(diffInDays / 365)} years ago`;
+  };
+
+  // Loading screen
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen bg-gradient-to-br from-gray-50 to-indigo-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+          <div className="text-indigo-600 font-semibold text-lg">Loading project...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!project) {
+    return (
+      <div className="flex justify-center items-center min-h-screen bg-gradient-to-br from-gray-50 to-indigo-50">
+        <div className="text-center">
+          <div className="text-6xl mb-4">😔</div>
+          <div className="text-red-600 font-semibold text-lg">Project not found</div>
+          <button 
+            onClick={() => navigate('/projects')}
+            className="mt-4 px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+          >
+            Back to Projects
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const ownerInitials = project.owner_id?.name 
+    ? project.owner_id.name.split(' ').map(n => n[0]).join('').toUpperCase() 
+    : 'U';
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-indigo-50 py-8 px-4">
       <div className="max-w-7xl mx-auto">
         {/* Back Button */}
-        <button className="mb-6 flex items-center gap-2 text-indigo-600 hover:text-indigo-700 font-semibold transition-colors">
+        <button 
+          onClick={() => navigate(-1)}
+          className="mb-6 flex items-center gap-2 text-indigo-600 hover:text-indigo-700 font-semibold transition-colors"
+        >
           <ArrowLeft size={20} />
           Back to Projects
         </button>
@@ -122,55 +263,58 @@ const ProjectDetailPage = () => {
                     <h1 className="text-3xl font-bold text-gray-900 mb-3">{project.title}</h1>
                     <p className="text-gray-600 mb-4">{project.description}</p>
                     <div className="flex flex-wrap gap-2">
-                      <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                        project.status === 'Open' 
-                          ? 'bg-green-100 text-green-700' 
-                          : 'bg-gray-100 text-gray-700'
-                      }`}>
+                      <span className={`px-3 py-1 rounded-full text-sm font-semibold ${getStatusColor(project.status)}`}>
                         {project.status}
                       </span>
-                      <span className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-sm font-semibold">
-                        {project.category}
-                      </span>
-                      <span className="px-3 py-1 bg-yellow-100 text-yellow-700 rounded-full text-sm font-semibold">
-                        {project.difficulty}
-                      </span>
+                      {project.tags?.map((tag, idx) => (
+                        <span key={idx} className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-sm font-semibold">
+                          {tag}
+                        </span>
+                      ))}
                     </div>
                   </div>
                   <div className="flex gap-2">
                     <button 
-                      onClick={() => setIsLiked(!isLiked)}
+                      onClick={handleLike}
                       className={`p-3 rounded-xl transition-all ${
                         isLiked 
                           ? 'bg-pink-100 text-pink-600' 
                           : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                       }`}
+                      title={isLiked ? 'Unlike' : 'Like'}
                     >
                       <Heart size={24} fill={isLiked ? 'currentColor' : 'none'} />
                     </button>
-                    <button className="p-3 bg-gray-100 text-gray-600 hover:bg-gray-200 rounded-xl transition-all">
+                    <button 
+                      onClick={() => {
+                        navigator.clipboard.writeText(window.location.href);
+                        context.openAlertBox('success', 'Link copied to clipboard!');
+                      }}
+                      className="p-3 bg-gray-100 text-gray-600 hover:bg-gray-200 rounded-xl transition-all"
+                      title="Share"
+                    >
                       <Share2 size={24} />
                     </button>
                   </div>
                 </div>
 
                 {/* Stats */}
-                <div className="flex items-center gap-6 text-sm text-gray-600">
+                <div className="flex items-center gap-6 text-sm text-gray-600 flex-wrap">
                   <span className="flex items-center gap-2">
-                    <Eye size={16} />
-                    {project.views} views
+                    <Clock size={16} />
+                    Created {getTimeAgo(project.created_at)}
                   </span>
                   <span className="flex items-center gap-2">
                     <Heart size={16} />
-                    {project.likes} likes
+                    {project.upvote_count || 0} likes
                   </span>
                   <span className="flex items-center gap-2">
-                    <Clock size={16} />
-                    Created {project.createdAt}
+                    <MessageCircle size={16} />
+                    {project.comment_count || 0} comments
                   </span>
                   <span className="flex items-center gap-2">
-                    <Target size={16} />
-                    Due: {project.deadline}
+                    <Users size={16} />
+                    {project.member_count || 0} members
                   </span>
                 </div>
               </div>
@@ -178,7 +322,7 @@ const ProjectDetailPage = () => {
               {/* Tabs */}
               <div className="border-b border-gray-200">
                 <div className="flex px-8">
-                  {['overview', 'discussion', 'milestones', 'members'].map(tab => (
+                  {['overview', 'discussion', 'members'].map(tab => (
                     <button
                       key={tab}
                       onClick={() => setActiveTab(tab)}
@@ -200,38 +344,35 @@ const ProjectDetailPage = () => {
                   <div className="space-y-6">
                     <div>
                       <h2 className="text-2xl font-bold text-gray-900 mb-4">About This Project</h2>
-                      <p className="text-gray-700 leading-relaxed mb-6">{project.fullDescription}</p>
+                      <p className="text-gray-700 leading-relaxed mb-6">{project.description}</p>
                     </div>
 
-                    <div>
-                      <h3 className="text-xl font-bold text-gray-900 mb-3">Required Skills</h3>
-                      <div className="flex flex-wrap gap-2">
-                        {project.skills.map((skill, idx) => (
-                          <span key={idx} className="px-4 py-2 bg-gradient-to-r from-indigo-100 to-purple-100 text-indigo-700 rounded-full font-medium">
-                            {skill}
-                          </span>
-                        ))}
+                    {project.required_skills && project.required_skills.length > 0 && (
+                      <div>
+                        <h3 className="text-xl font-bold text-gray-900 mb-3">Required Skills</h3>
+                        <div className="flex flex-wrap gap-2">
+                          {project.required_skills.map((skill, idx) => (
+                            <span key={idx} className="px-4 py-2 bg-gradient-to-r from-indigo-100 to-purple-100 text-indigo-700 rounded-full font-medium">
+                              {skill}
+                            </span>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-
-                    <div>
-                      <h3 className="text-xl font-bold text-gray-900 mb-3">What We're Looking For</h3>
-                      <ul className="space-y-3">
-                        {requirements.map((req, idx) => (
-                          <li key={idx} className="flex items-start gap-3 text-gray-700">
-                            <CheckCircle className="text-green-600 flex-shrink-0 mt-0.5" size={20} />
-                            <span>{req}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
+                    )}
 
                     <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl p-6">
-                      <h3 className="text-lg font-bold text-gray-900 mb-2">Project Goals</h3>
-                      <p className="text-gray-700">
-                        Create a functional AI assistant that can help students with scheduling, study planning, and resource discovery. 
-                        The final product should be ready for beta testing with real students by March 2025.
-                      </p>
+                      <h3 className="text-lg font-bold text-gray-900 mb-2">Project Status</h3>
+                      <div className="space-y-2">
+                        <p className="text-gray-700">
+                          <span className="font-semibold">Status:</span> {project.status}
+                        </p>
+                        <p className="text-gray-700">
+                          <span className="font-semibold">Team Size:</span> {project.member_count || 0} member{project.member_count !== 1 ? 's' : ''}
+                        </p>
+                        <p className="text-gray-700">
+                          <span className="font-semibold">Created:</span> {formatDate(project.created_at)}
+                        </p>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -240,57 +381,55 @@ const ProjectDetailPage = () => {
                   <div className="space-y-4">
                     <div className="flex items-center justify-between mb-6">
                       <h2 className="text-2xl font-bold text-gray-900">Team Discussion</h2>
-                      <button className="px-4 py-2 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 transition-all">
-                        New Message
+                    </div>
+
+                    {/* Comment Form */}
+                    <form onSubmit={handleSubmitComment} className="bg-gray-50 rounded-xl p-6 mb-6">
+                      <textarea
+                        value={newComment}
+                        onChange={(e) => setNewComment(e.target.value)}
+                        placeholder="Share your thoughts or ask a question..."
+                        rows="3"
+                        className="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none mb-3"
+                      />
+                      <button
+                        type="submit"
+                        disabled={submittingComment || !newComment.trim()}
+                        className="px-4 py-2 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                      >
+                        <Send size={16} />
+                        {submittingComment ? 'Posting...' : 'Post Comment'}
                       </button>
-                    </div>
+                    </form>
 
-                    {discussions.map((discussion, idx) => (
-                      <div key={idx} className="bg-gray-50 rounded-xl p-6">
-                        <div className="flex items-start gap-4">
-                          <div className="w-12 h-12 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0">
-                            {discussion.avatar}
-                          </div>
-                          <div className="flex-1">
-                            <div className="flex items-center justify-between mb-2">
-                              <div>
-                                <div className="font-bold text-gray-900">{discussion.author}</div>
-                                <div className="text-sm text-gray-600">{discussion.time}</div>
-                              </div>
+                    {/* Comments List */}
+                    {comments.length > 0 ? (
+                      comments.map((comment, idx) => (
+                        <div key={comment._id || idx} className="bg-gray-50 rounded-xl p-6">
+                          <div className="flex items-start gap-4">
+                            <div className="w-12 h-12 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0">
+                              {comment.user_id?.name?.split(' ').map(n => n[0]).join('').toUpperCase() || 'U'}
                             </div>
-                            <p className="text-gray-700 mb-3">{discussion.message}</p>
-                            <button className="flex items-center gap-2 text-sm text-indigo-600 hover:text-indigo-700 font-semibold">
-                              <MessageCircle size={16} />
-                              {discussion.replies} replies
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-
-                    <div className="text-center py-8 text-gray-500">
-                      <p>Join the project to participate in discussions</p>
-                    </div>
-                  </div>
-                )}
-
-                {activeTab === 'milestones' && (
-                  <div>
-                    <h2 className="text-2xl font-bold text-gray-900 mb-6">Project Milestones</h2>
-                    <div className="space-y-4">
-                      {milestones.map((milestone, idx) => (
-                        <div key={idx} className={`border-l-4 ${getStatusColor(milestone.status)} pl-6 py-4`}>
-                          <div className="flex items-start gap-3 mb-2">
-                            {getStatusIcon(milestone.status)}
                             <div className="flex-1">
-                              <h4 className="font-bold text-gray-900 mb-1">{milestone.title}</h4>
-                              <p className="text-sm text-gray-600 mb-2">{milestone.description}</p>
-                              <p className="text-sm text-gray-500">{milestone.date}</p>
+                              <div className="flex items-center justify-between mb-2">
+                                <div>
+                                  <div className="font-bold text-gray-900">{comment.user_id?.name || 'Unknown User'}</div>
+                                  <div className="text-sm text-gray-600">
+                                    {getTimeAgo(comment.created_at)}
+                                  </div>
+                                </div>
+                              </div>
+                              <p className="text-gray-700">{comment.content}</p>
                             </div>
                           </div>
                         </div>
-                      ))}
-                    </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-8 text-gray-500">
+                        <MessageCircle size={48} className="mx-auto mb-4 text-gray-300" />
+                        <p>No comments yet. Be the first to share your thoughts!</p>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -298,32 +437,38 @@ const ProjectDetailPage = () => {
                   <div>
                     <h2 className="text-2xl font-bold text-gray-900 mb-6">Team Members</h2>
                     <div className="space-y-4">
-                      {project.members.map((member, idx) => (
-                        <div key={idx} className="bg-gray-50 rounded-xl p-6 flex items-start gap-4">
-                          <div className="w-16 h-16 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-xl flex items-center justify-center text-white font-bold text-xl flex-shrink-0">
-                            {member.avatar}
-                          </div>
-                          <div className="flex-1">
-                            <div className="flex items-start justify-between mb-2">
-                              <div>
-                                <h3 className="font-bold text-gray-900 text-lg">{member.name}</h3>
-                                <p className="text-indigo-600 font-semibold">{member.role}</p>
-                                <p className="text-sm text-gray-600">{member.college}</p>
+                      {members.length > 0 ? (
+                        members.map((member, idx) => (
+                          <div key={member._id || idx} className="bg-gray-50 rounded-xl p-6 flex items-start gap-4">
+                            <div className="w-16 h-16 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-xl flex items-center justify-center text-white font-bold text-xl flex-shrink-0">
+                              {member.user_id?.name?.split(' ').map(n => n[0]).join('').toUpperCase() || 'U'}
+                            </div>
+                            <div className="flex-1">
+                              <div className="flex items-start justify-between mb-2">
+                                <div>
+                                  <h3 className="font-bold text-gray-900 text-lg">{member.user_id?.name || 'Unknown'}</h3>
+                                  <p className="text-indigo-600 font-semibold">{member.role}</p>
+                                  <p className="text-sm text-gray-600">{member.user_id?.college || 'College not specified'}</p>
+                                </div>
                               </div>
-                              <button className="px-4 py-2 bg-indigo-100 text-indigo-600 rounded-lg font-semibold hover:bg-indigo-200 transition-all">
-                                View Profile
-                              </button>
-                            </div>
-                            <div className="flex flex-wrap gap-2 mt-3">
-                              {member.skills.map((skill, skillIdx) => (
-                                <span key={skillIdx} className="px-3 py-1 bg-white text-gray-700 rounded-full text-sm font-medium">
-                                  {skill}
-                                </span>
-                              ))}
+                              {member.user_id?.skills && member.user_id.skills.length > 0 && (
+                                <div className="flex flex-wrap gap-2 mt-3">
+                                  {member.user_id.skills.slice(0, 5).map((skill, skillIdx) => (
+                                    <span key={skillIdx} className="px-3 py-1 bg-white text-gray-700 rounded-full text-sm font-medium">
+                                      {skill}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
                             </div>
                           </div>
+                        ))
+                      ) : (
+                        <div className="text-center py-8 text-gray-500">
+                          <Users size={48} className="mx-auto mb-4 text-gray-300" />
+                          <p>No members to display</p>
                         </div>
-                      ))}
+                      )}
                     </div>
                   </div>
                 )}
@@ -339,24 +484,26 @@ const ProjectDetailPage = () => {
                 <div className="flex items-center justify-center gap-2 mb-4">
                   <Users className="text-indigo-600" size={24} />
                   <span className="text-2xl font-bold text-gray-900">
-                    {project.members.length}/{project.maxMembers}
+                    {project.member_count || 0}
                   </span>
                 </div>
-                <p className="text-gray-600 mb-4">
-                  {project.maxMembers - project.members.length} spots remaining
-                </p>
-                <div className="w-full bg-gray-200 rounded-full h-2 mb-4">
-                  <div 
-                    className="bg-gradient-to-r from-indigo-600 to-purple-600 h-2 rounded-full"
-                    style={`{width: ${(project.members.length / project.maxMembers) * 100}% }`}
-                  />
-                </div>
+                <p className="text-gray-600 mb-4">Team member{project.member_count !== 1 ? 's' : ''}</p>
               </div>
-              <button className="w-full py-3 px-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all transform hover:scale-105 shadow-lg mb-3">
+              <button 
+                onClick={handleJoinRequest}
+                className="w-full py-3 px-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all transform hover:scale-105 shadow-lg mb-3"
+              >
                 Request to Join
               </button>
-              <button className="w-full py-3 px-4 border-2 border-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 transition-all">
-                Save Project
+              <button 
+                onClick={handleBookmark}
+                className={`w-full py-3 px-4 border-2 font-semibold rounded-xl transition-all ${
+                  isBookmarked 
+                    ? 'border-indigo-600 text-indigo-600 bg-indigo-50' 
+                    : 'border-gray-200 text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                {isBookmarked ? '✓ Saved' : 'Save Project'}
               </button>
             </div>
 
@@ -366,23 +513,27 @@ const ProjectDetailPage = () => {
               <div className="space-y-3 text-sm">
                 <div className="flex justify-between">
                   <span className="text-gray-600">Created</span>
-                  <span className="font-semibold text-gray-900">{project.createdAt}</span>
+                  <span className="font-semibold text-gray-900">
+                    {formatDate(project.created_at)}
+                  </span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Deadline</span>
-                  <span className="font-semibold text-gray-900">{project.deadline}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Views</span>
-                  <span className="font-semibold text-gray-900">{project.views}</span>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600">Status</span>
+                  <span className={`font-semibold px-2 py-1 rounded text-xs ${getStatusColor(project.status)}`}>
+                    {project.status}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Likes</span>
-                  <span className="font-semibold text-gray-900">{project.likes}</span>
+                  <span className="font-semibold text-gray-900">{project.upvote_count || 0}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">College</span>
-                  <span className="font-semibold text-gray-900">{project.college}</span>
+                  <span className="text-gray-600">Comments</span>
+                  <span className="font-semibold text-gray-900">{project.comment_count || 0}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Members</span>
+                  <span className="font-semibold text-gray-900">{project.member_count || 0}</span>
                 </div>
               </div>
             </div>
@@ -390,18 +541,20 @@ const ProjectDetailPage = () => {
             {/* Project Owner */}
             <div className="bg-white rounded-2xl shadow-xl p-6">
               <h3 className="font-bold text-gray-900 mb-4">Project Owner</h3>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 mb-4">
                 <div className="w-12 h-12 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-full flex items-center justify-center text-white font-bold">
-                  {project.author.split(' ').map(n => n[0]).join('')}
+                  {ownerInitials}
                 </div>
                 <div>
-                  <div className="font-bold text-gray-900">{project.author}</div>
-                  <div className="text-sm text-gray-600">{project.college}</div>
+                  <div className="font-bold text-gray-900">{project.owner_id?.name || 'Unknown'}</div>
+                  <div className="text-sm text-gray-600">{project.owner_id?.college_branch || 'N/A'}</div>
                 </div>
               </div>
-              <button className="w-full mt-4 py-2 px-4 border-2 border-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 transition-all">
-                View Profile
-              </button>
+              {project.owner_id?.college && (
+                <p className="text-sm text-gray-600 mb-3">
+                  <span className="font-semibold">College:</span> {project.owner_id.college}
+                </p>
+              )}
             </div>
           </div>
         </div>

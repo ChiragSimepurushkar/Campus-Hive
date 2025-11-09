@@ -1,13 +1,33 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Menu, X, Bell, User, Search, Home, Briefcase, Calendar, MessageCircle, Settings, LogOut, ChevronDown, Users, Plus } from 'lucide-react';
+import React, { useState, useContext } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import {
+  Menu,
+  X,
+  Bell,
+  User,
+  Search,
+  Home,
+  Briefcase,
+  Calendar,
+  MessageCircle,
+  Settings,
+  LogOut,
+  ChevronDown,
+  Users,
+  Plus
+} from 'lucide-react';
+import { fetchDataFromApi } from '../../utils/api';
+import { MyContext } from '../../App';
 
-// The primary Navbar component containing all navigation logic and state
+
 const Navbar = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
+
+  const context = useContext(MyContext);
+  const navigate = useNavigate();
 
   const notifications = [
     { id: 1, type: 'project', text: 'Sarah invited you to AI Study Assistant', time: '2h ago', unread: true },
@@ -25,11 +45,40 @@ const Navbar = () => {
     { name: 'Messages', icon: MessageCircle, path: '/messages', badge: 3 }
   ];
 
+  const logout = async () => {
+    try {
+      // if you require credentials: set withCredentials on fetchDataFromApi
+      const res = await fetchDataFromApi(`/api/user/logout`, { withCredentials: true });
+      // server response shape may vary; handle success path
+      if (res?.success === true || res?.message === 'Logout successfully') {
+        context.setIsLogin(false);
+        localStorage.removeItem('accesstoken');
+        localStorage.removeItem('refreshToken');
+        context.openAlertBox('success', 'You have been logged out.');
+        navigate('/');
+      } else {
+        // fallback: still clear client state and show message
+        context.setIsLogin(false);
+        localStorage.removeItem('accesstoken');
+        localStorage.removeItem('refreshToken');
+        context.openAlertBox('error', res?.message || 'Logout failed.');
+      }
+    } catch (err) {
+      console.error('Logout failed:', err);
+      context.openAlertBox('error', 'Logout failed due to a network error.');
+    }
+  };
+
+  // derive initials for avatar
+  const initials = context?.userData?.name
+    ? context.userData.name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()
+    : 'JD';
+
   return (
     <nav className="bg-white shadow-lg sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
-          {/* Logo */}
+          {/* Left: Logo + Desktop nav */}
           <div className="flex items-center gap-8">
             <Link to="/" className="flex items-center gap-2 group">
               <div className="w-10 h-10 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
@@ -62,43 +111,9 @@ const Navbar = () => {
             </div>
           </div>
 
-          {/* Desktop Actions */}
+          {/* Right: Desktop actions */}
           <div className="hidden md:flex items-center gap-3">
-            {/* Create New Button */}
-            <Link to="/create" className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-semibold hover:from-indigo-700 hover:to-purple-700 transition-all shadow-lg hover:shadow-xl">
-              <Plus size={20} />
-              <span>Create</span>
-            </Link>
-
-            {/* Search */}
-            <div className="relative">
-              {showSearch ? (
-                <div className="flex items-center gap-2">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-                    <input
-                      type="text"
-                      placeholder="Search..."
-                      className="pl-10 pr-4 py-2 w-64 border-2 border-gray-200 rounded-xl focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none"
-                      autoFocus
-                    />
-                  </div>
-                  <button
-                    onClick={() => setShowSearch(false)}
-                    className="p-2 hover:bg-gray-100 rounded-lg transition-all"
-                  >
-                    <X size={20} />
-                  </button>
-                </div>
-              ) : (
-                <button
-                  onClick={() => setShowSearch(true)}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-all"
-                >
-                  <Search size={20} className="text-gray-600" />
-                </button>
-              )}
-            </div>
+            {/* Create Button */}
 
             {/* Notifications */}
             <div className="relative">
@@ -117,24 +132,19 @@ const Navbar = () => {
                 )}
               </button>
 
-              {/* Notifications Dropdown */}
               {showNotifications && (
                 <div className="absolute right-0 mt-2 w-96 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden">
                   <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gradient-to-r from-indigo-50 to-purple-50">
                     <h3 className="font-bold text-gray-900">Notifications</h3>
                     {unreadCount > 0 && (
-                      <button className="text-xs text-indigo-600 hover:text-indigo-700 font-semibold">
-                        Mark all read
-                      </button>
+                      <button className="text-xs text-indigo-600 hover:text-indigo-700 font-semibold">Mark all read</button>
                     )}
                   </div>
                   <div className="max-h-96 overflow-y-auto">
                     {notifications.map(notif => (
                       <button
                         key={notif.id}
-                        className={`w-full p-4 border-b border-gray-50 hover:bg-gray-50 transition-all text-left ${
-                          notif.unread ? 'bg-blue-50' : ''
-                        }`}
+                        className={`w-full p-4 border-b border-gray-50 hover:bg-gray-50 transition-all text-left ${notif.unread ? 'bg-blue-50' : ''}`}
                       >
                         <div className="flex items-start gap-3">
                           <div className={`w-2 h-2 rounded-full mt-2 ${notif.unread ? 'bg-blue-600' : 'bg-transparent'}`} />
@@ -146,76 +156,92 @@ const Navbar = () => {
                       </button>
                     ))}
                   </div>
-                  <button className="w-full p-3 text-center text-sm text-indigo-600 hover:bg-indigo-50 font-semibold transition-all">
-                    View All Notifications
-                  </button>
+                  <button className="w-full p-3 text-center text-sm text-indigo-600 hover:bg-indigo-50 font-semibold transition-all">View All Notifications</button>
                 </div>
               )}
             </div>
 
-            {/* User Menu */}
+            {/* Authentication / Profile area */}
             <div className="relative">
-              <button
-                onClick={() => {
-                  setShowUserMenu(!showUserMenu);
-                  setShowNotifications(false);
-                }}
-                className="flex items-center gap-2 p-2 hover:bg-gray-100 rounded-lg transition-all"
-              >
-                <div className="w-8 h-8 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-sm">
-                  JD
+              {!context?.isLogin ? (
+                // Not logged in -> show Login / Register links (styled)
+                <div className="flex items-center gap-3">
+                  <Link
+                    to="/login"
+                    className="px-4 py-2 rounded-xl border-2 border-gray-200 text-gray-700 font-medium hover:border-indigo-300 transition-all"
+                  >
+                    Login
+                  </Link>
+                  <Link
+                    to="/signup"
+                    className="px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold hover:from-indigo-700 hover:to-purple-700 transition-all"
+                  >
+                    Register
+                  </Link>
                 </div>
-                <ChevronDown size={16} className="text-gray-600" />
-              </button>
+              ) : (
+                // Logged in -> show avatar + dropdown
+                <>
+                  <button
+                    onClick={() => {
+                      setShowUserMenu(!showUserMenu);
+                      setShowNotifications(false);
+                    }}
+                    className="flex items-center gap-2 p-2 hover:bg-gray-100 rounded-lg transition-all"
+                  >
+                    <div className="w-8 h-8 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-sm">
+                      {initials}
+                    </div>
+                    <ChevronDown size={16} className="text-gray-600" />
+                  </button>
 
-              {/* User Dropdown */}
-              {showUserMenu && (
-                <div className="absolute right-0 mt-2 w-64 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden">
-                  <div className="p-4 border-b border-gray-100 bg-gradient-to-r from-indigo-50 to-purple-50">
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-xl flex items-center justify-center text-white font-bold">
-                        JD
+                  {showUserMenu && (
+                    <div className="absolute right-0 mt-2 w-64 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden">
+                      <div className="p-4 border-b border-gray-100 bg-gradient-to-r from-indigo-50 to-purple-50">
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-xl flex items-center justify-center text-white font-bold">
+                            {initials}
+                          </div>
+                          <div>
+                            <div className="font-bold text-gray-900">{context?.userData?.name || 'User'}</div>
+                            <div className="text-sm text-gray-600">{context?.userData?.email || ''}</div>
+                          </div>
+                        </div>
                       </div>
-                      <div>
-                        <div className="font-bold text-gray-900">John Doe</div>
-                        <div className="text-sm text-gray-600">john@college.edu</div>
+
+                      <div className="p-2">
+                        <Link to="/profile" className="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-xl transition-all">
+                          <User size={18} /> <span className="font-medium">My Profile</span>
+                        </Link>
+                        <Link to="/profile" className="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-xl transition-all">
+                          <Briefcase size={18} /> <span className="font-medium">My Projects</span>
+                        </Link>
+                        <Link to="/connections" className="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-xl transition-all">
+                          <Users size={18} /> <span className="font-medium">Connections</span>
+                        </Link>
+                        <Link to="/settings" className="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-xl transition-all">
+                          <Settings size={18} /> <span className="font-medium">Settings</span>
+                        </Link>
+                      </div>
+
+                      <div className="p-2 border-t border-gray-100">
+                        <button
+                          onClick={logout}
+                          className="w-full flex items-center gap-3 px-4 py-3 text-red-600 hover:bg-red-50 rounded-xl transition-all"
+                        >
+                          <LogOut size={18} />
+                          <span className="font-medium">Sign Out</span>
+                        </button>
                       </div>
                     </div>
-                  </div>
-                  <div className="p-2">
-                    <Link to="/profile" className="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-xl transition-all">
-                      <User size={18} />
-                      <span className="font-medium">My Profile</span>
-                    </Link>
-                    <Link to="/projects" className="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-xl transition-all">
-                      <Briefcase size={18} />
-                      <span className="font-medium">My Projects</span>
-                    </Link>
-                    <Link to="/connections" className="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-xl transition-all">
-                      <Users size={18} />
-                      <span className="font-medium">Connections</span>
-                    </Link>
-                    <Link to="/settings" className="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-xl transition-all">
-                      <Settings size={18} />
-                      <span className="font-medium">Settings</span>
-                    </Link>
-                  </div>
-                  <div className="p-2 border-t border-gray-100">
-                    <button className="w-full flex items-center gap-3 px-4 py-3 text-red-600 hover:bg-red-50 rounded-xl transition-all">
-                      <LogOut size={18} />
-                      <span className="font-medium">Sign Out</span>
-                    </button>
-                  </div>
-                </div>
+                  )}
+                </>
               )}
             </div>
           </div>
 
           {/* Mobile menu button */}
-          <button
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="md:hidden p-2 hover:bg-gray-100 rounded-lg transition-all"
-          >
+          <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="md:hidden p-2 hover:bg-gray-100 rounded-lg transition-all">
             {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
           </button>
         </div>
@@ -225,65 +251,43 @@ const Navbar = () => {
           <div className="md:hidden pb-4 border-t border-gray-100 mt-2">
             <div className="space-y-1 pt-2">
               {/* Create Button */}
-              <Link
-                to="/create"
-                onClick={() => setMobileMenuOpen(false)}
-                className="w-full flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-semibold mb-2"
-              >
-                <Plus size={20} />
-                <span>Create New</span>
+              <Link to="/create" onClick={() => setMobileMenuOpen(false)} className="w-full flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-semibold mb-2">
+                <Plus size={20} /> <span>Create New</span>
               </Link>
+
+              {/* Auth (mobile) */}
+              {!context?.isLogin ? (
+                <div className="px-4">
+                  <Link to="/login" onClick={() => setMobileMenuOpen(false)} className="block w-full text-center px-4 py-2 rounded-xl border-2 border-gray-200 text-gray-700 font-medium mb-2">Login</Link>
+                  <Link to="/signup" onClick={() => setMobileMenuOpen(false)} className="block w-full text-center px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold">Register</Link>
+                </div>
+              ) : (
+                <>
+                  <Link to="/profile" onClick={() => setMobileMenuOpen(false)} className="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-xl transition-all">
+                    <User size={20} /> <span className="font-medium">My Profile</span>
+                  </Link>
+                  <button onClick={() => { setMobileMenuOpen(false); logout(); }} className="w-full flex items-center gap-3 px-4 py-3 text-red-600 hover:bg-red-50 rounded-xl transition-all">
+                    <LogOut size={20} /> <span className="font-medium">Sign Out</span>
+                  </button>
+                </>
+              )}
 
               {/* Mobile Nav Links */}
               {navLinks.map((link, idx) => (
-                <Link
-                  key={idx}
-                  to={link.path}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-xl transition-all"
-                >
+                <Link key={idx} to={link.path} onClick={() => setMobileMenuOpen(false)} className="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-xl transition-all">
                   <link.icon size={20} />
                   <span className="font-medium">{link.name}</span>
-                  {link.badge && (
-                    <span className="ml-auto w-6 h-6 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
-                      {link.badge}
-                    </span>
-                  )}
+                  {link.badge && <span className="ml-auto w-6 h-6 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">{link.badge}</span>}
                 </Link>
               ))}
+
               <div className="border-t border-gray-100 my-2"></div>
-              {/* Mobile Profile/Settings Links */}
-              <Link
-                to="/profile"
-                onClick={() => setMobileMenuOpen(false)}
-                className="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-xl transition-all"
-              >
-                <User size={20} />
-                <span className="font-medium">My Profile</span>
+              <Link to="/connections" onClick={() => setMobileMenuOpen(false)} className="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-xl transition-all">
+                <Users size={20} /> <span className="font-medium">Connections</span>
               </Link>
-              <Link
-                to="/connections"
-                onClick={() => setMobileMenuOpen(false)}
-                className="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-xl transition-all"
-              >
-                <Users size={20} />
-                <span className="font-medium">Connections</span>
+              <Link to="/settings" onClick={() => setMobileMenuOpen(false)} className="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-xl transition-all">
+                <Settings size={20} /> <span className="font-medium">Settings</span>
               </Link>
-              <Link
-                to="/settings"
-                onClick={() => setMobileMenuOpen(false)}
-                className="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-xl transition-all"
-              >
-                <Settings size={20} />
-                <span className="font-medium">Settings</span>
-              </Link>
-              <button
-                onClick={() => setMobileMenuOpen(false)}
-                className="w-full flex items-center gap-3 px-4 py-3 text-red-600 hover:bg-red-50 rounded-xl transition-all"
-              >
-                <LogOut size={20} />
-                <span className="font-medium">Sign Out</span>
-              </button>
             </div>
           </div>
         )}

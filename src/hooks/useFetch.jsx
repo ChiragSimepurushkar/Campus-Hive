@@ -6,7 +6,7 @@ import api from '../services/api.jsx';
 /**
  * Reusable hook for fetching data from the backend.
  */
-export const useFetch = (url, { method = 'GET', body = null, initialData = null, skip = false } = {}) => {
+const useFetch = (url, { method = 'GET', body = null, initialData = null, skip = false } = {}) => {
   const [data, setData] = useState(initialData);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -40,3 +40,5 @@ export const useFetch = (url, { method = 'GET', body = null, initialData = null,
 
   return { data, loading, error, refetch: executeFetch };
 };
+
+export default useFetch;

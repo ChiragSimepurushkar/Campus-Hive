@@ -1,12 +1,30 @@
-import React, { useState } from 'react';
-import { Search, Filter, Plus, Users, Heart, Eye, Clock, TrendingUp, Briefcase } from 'lucide-react';
+import React, { useState, useEffect, useContext } from 'react';
+import { useNavigate } from 'react-router-dom';
+import {
+  Search,
+  Filter,
+  Plus,
+  Users,
+  Heart,
+  Eye,
+  Clock,
+  ArrowLeft,
+} from 'lucide-react';
+import { MyContext } from '../App.jsx';
+import { getProjects } from '../utils/api.js';
 
 const ProjectsPage = () => {
+  const navigate = useNavigate();
+  const context = useContext(MyContext);
+  
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [sortBy, setSortBy] = useState('recent');
-  const [viewMode, setViewMode] = useState('grid'); // grid or list
+  const [projects, setProjects] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
 
   const categories = [
     'all',
@@ -17,389 +35,308 @@ const ProjectsPage = () => {
     'IoT',
     'Research',
     'Design',
-    'Data Science'
+    'Data Science',
   ];
 
-  const projects = [
-    {
-      id: 1,
-      title: 'AI-Powered Study Assistant',
-      description: 'Building an intelligent chatbot to help students with their coursework and study schedules using natural language processing.',
-      status: 'Open',
-      category: 'AI/ML',
-      skills: ['Python', 'TensorFlow', 'NLP', 'Flask'],
-      members: 3,
-      maxMembers: 5,
-      likes: 24,
-      views: 156,
-      createdAt: '2 days ago',
-      author: 'Sarah Johnson',
-      college: 'MIT',
-      difficulty: 'Intermediate'
-    },
-    {
-      id: 2,
-      title: 'Campus Event Management App',
-      description: 'A mobile app to discover and manage campus events, clubs, and activities with real-time notifications.',
-      status: 'Open',
-      category: 'Mobile Dev',
-      skills: ['React Native', 'Node.js', 'MongoDB', 'Firebase'],
-      members: 2,
-      maxMembers: 4,
-      likes: 18,
-      views: 89,
-      createdAt: '5 days ago',
-      author: 'Mike Chen',
-      college: 'Stanford',
-      difficulty: 'Advanced'
-    },
-    {
-      id: 3,
-      title: 'Sustainable Campus Initiative',
-      description: 'Research project focusing on reducing carbon footprint and promoting sustainability through data analysis.',
-      status: 'Full',
-      category: 'Research',
-      skills: ['Data Analysis', 'Research', 'Sustainability', 'Python'],
-      members: 4,
-      maxMembers: 4,
-      likes: 32,
-      views: 203,
-      createdAt: '1 week ago',
-      author: 'Emma Davis',
-      college: 'Berkeley',
-      difficulty: 'Beginner'
-    },
-    {
-      id: 4,
-      title: 'Blockchain Voting System',
-      description: 'Secure and transparent voting system for student elections using blockchain technology and smart contracts.',
-      status: 'Open',
-      category: 'Blockchain',
-      skills: ['Solidity', 'Web3.js', 'React', 'Ethereum'],
-      members: 1,
-      maxMembers: 3,
-      likes: 41,
-      views: 178,
-      createdAt: '3 days ago',
-      author: 'Alex Kumar',
-      college: 'Harvard',
-      difficulty: 'Advanced'
-    },
-    {
-      id: 5,
-      title: 'Mental Health Chatbot',
-      description: 'AI chatbot providing mental health support and resources for students with empathetic conversation.',
-      status: 'Open',
-      category: 'AI/ML',
-      skills: ['Python', 'NLP', 'Psychology', 'UI/UX'],
-      members: 2,
-      maxMembers: 4,
-      likes: 56,
-      views: 234,
-      createdAt: '4 days ago',
-      author: 'Lisa Wang',
-      college: 'Yale',
-      difficulty: 'Intermediate'
-    },
-    {
-      id: 6,
-      title: 'Smart IoT Campus System',
-      description: 'IoT solution for automating classroom lighting, temperature control, and resource management.',
-      status: 'Open',
-      category: 'IoT',
-      skills: ['Arduino', 'Raspberry Pi', 'C++', 'Sensors'],
-      members: 3,
-      maxMembers: 5,
-      likes: 19,
-      views: 145,
-      createdAt: '1 week ago',
-      author: 'David Brown',
-      college: 'Georgia Tech',
-      difficulty: 'Intermediate'
+  // Fetch projects from backend
+  useEffect(() => {
+    fetchProjects();
+  }, [selectedCategory, selectedStatus, searchQuery, sortBy, page]);
+
+  const fetchProjects = async () => {
+    try {
+      setLoading(true);
+      
+      const filters = {
+        page: page,
+        limit: 12,
+      };
+
+      // Add filters only if they're not 'all'
+      if (selectedCategory !== 'all') {
+        filters.tag = selectedCategory;
+      }
+      if (selectedStatus !== 'all') {
+        filters.status = selectedStatus;
+      }
+      if (searchQuery.trim()) {
+        filters.search = searchQuery.trim();
+      }
+
+      const res = await getProjects(filters);
+      
+      if (res.success && res.data) {
+        setProjects(res.data);
+        setTotalCount(res.meta?.totalCount || 0);
+      } else {
+        context.openAlertBox('error', res.message || 'Failed to fetch projects');
+      }
+    } catch (err) {
+      console.error('Error fetching projects:', err);
+      context.openAlertBox('error', 'An unexpected error occurred');
+    } finally {
+      setLoading(false);
     }
-  ];
-
-  const filteredProjects = projects.filter(p => {
-    const matchesSearch = p.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                         p.description.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = selectedCategory === 'all' || p.category === selectedCategory;
-    const matchesStatus = selectedStatus === 'all' || p.status === selectedStatus;
-    return matchesSearch && matchesCategory && matchesStatus;
-  });
+  };
 
   const getDifficultyColor = (difficulty) => {
-    switch(difficulty) {
-      case 'Beginner': return 'bg-green-100 text-green-700';
-      case 'Intermediate': return 'bg-yellow-100 text-yellow-700';
-      case 'Advanced': return 'bg-red-100 text-red-700';
-      default: return 'bg-gray-100 text-gray-700';
+    switch (difficulty) {
+      case 'Beginner':
+        return 'bg-green-100 text-green-700';
+      case 'Intermediate':
+        return 'bg-yellow-100 text-yellow-700';
+      case 'Advanced':
+        return 'bg-red-100 text-red-700';
+      default:
+        return 'bg-gray-100 text-gray-700';
     }
+  };
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'Hiring':
+        return 'bg-green-100 text-green-700';
+      case 'In Progress':
+        return 'bg-blue-100 text-blue-700';
+      case 'Completed':
+        return 'bg-gray-100 text-gray-700';
+      case 'Idea':
+        return 'bg-purple-100 text-purple-700';
+      default:
+        return 'bg-gray-100 text-gray-700';
+    }
+  };
+
+  const getTimeAgo = (dateString) => {
+    if (!dateString) return 'Unknown';
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInMs = now - date;
+    const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+    
+    if (diffInDays === 0) return 'Today';
+    if (diffInDays === 1) return 'Yesterday';
+    if (diffInDays < 7) return `${diffInDays} days ago`;
+    if (diffInDays < 30) return `${Math.floor(diffInDays / 7)} weeks ago`;
+    if (diffInDays < 365) return `${Math.floor(diffInDays / 30)} months ago`;
+    return `${Math.floor(diffInDays / 365)} years ago`;
+  };
+
+  const handleProjectClick = (projectId) => {
+    navigate(`/projects/${projectId}`);
+  };
+
+  const handleCreateProject = () => {
+    navigate('/projects/create');
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-indigo-50 py-8 px-4">
       <div className="max-w-7xl mx-auto">
+
+        {/* Back to Home Button */}
+        <div className="mb-6">
+          <button
+            onClick={() => navigate('/')}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-xl shadow-sm hover:bg-indigo-50 hover:border-indigo-300 transition-all text-gray-700 font-medium"
+          >
+            <ArrowLeft size={18} />
+            Back to Home
+          </button>
+        </div>
+
         {/* Header */}
         <div className="mb-8">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
             <div>
               <h1 className="text-4xl font-bold text-gray-900 mb-2">Discover Projects</h1>
-              <p className="text-gray-600">Find and join exciting collaborative projects</p>
+              <p className="text-gray-600">
+                Find and join exciting collaborative projects 
+                {totalCount > 0 && ` • ${totalCount} projects available`}
+              </p>
             </div>
-            <button className="mt-4 md:mt-0 inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-semibold hover:from-indigo-700 hover:to-purple-700 transition-all transform hover:scale-105 shadow-lg">
+            <button 
+              onClick={handleCreateProject}
+              className="mt-4 md:mt-0 inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-semibold hover:from-indigo-700 hover:to-purple-700 transition-all transform hover:scale-105 shadow-lg"
+            >
               <Plus size={20} />
               Create Project
             </button>
           </div>
 
-          {/* Quick Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-            <div className="bg-white rounded-xl p-4 shadow-md">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-indigo-100 rounded-lg">
-                  <Briefcase className="text-indigo-600" size={20} />
-                </div>
-                <div>
-                  <div className="text-2xl font-bold text-gray-900">{filteredProjects.length}</div>
-                  <div className="text-xs text-gray-600">Available Projects</div>
-                </div>
+          {/* Filters */}
+          <div className="bg-white p-4 rounded-2xl shadow-md border border-gray-100 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div className="flex items-center gap-3 flex-1">
+              <div className="relative w-full md:w-80">
+                <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
+                <input
+                  type="text"
+                  placeholder="Search projects..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                />
               </div>
-            </div>
-            <div className="bg-white rounded-xl p-4 shadow-md">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-green-100 rounded-lg">
-                  <Users className="text-green-600" size={20} />
-                </div>
-                <div>
-                  <div className="text-2xl font-bold text-gray-900">{filteredProjects.filter(p => p.status === 'Open').length}</div>
-                  <div className="text-xs text-gray-600">Open to Join</div>
-                </div>
-              </div>
-            </div>
-            <div className="bg-white rounded-xl p-4 shadow-md">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-purple-100 rounded-lg">
-                  <TrendingUp className="text-purple-600" size={20} />
-                </div>
-                <div>
-                  <div className="text-2xl font-bold text-gray-900">34</div>
-                  <div className="text-xs text-gray-600">Trending</div>
-                </div>
-              </div>
-            </div>
-            <div className="bg-white rounded-xl p-4 shadow-md">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-pink-100 rounded-lg">
-                  <Clock className="text-pink-600" size={20} />
-                </div>
-                <div>
-                  <div className="text-2xl font-bold text-gray-900">12</div>
-                  <div className="text-xs text-gray-600">New Today</div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Search and Filters */}
-          <div className="bg-white rounded-2xl shadow-lg p-6">
-            <div className="grid md:grid-cols-12 gap-4">
-              {/* Search */}
-              <div className="md:col-span-5">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-                  <input
-                    type="text"
-                    placeholder="Search projects by title or description..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-all outline-none"
-                  />
-                </div>
-              </div>
-
-              {/* Category Filter */}
-              <div className="md:col-span-3">
+              <div className="relative">
+                <Filter className="absolute left-3 top-2.5 text-gray-400" size={18} />
                 <select
                   value={selectedCategory}
                   onChange={(e) => setSelectedCategory(e.target.value)}
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-all outline-none appearance-none bg-white"
+                  className="pl-9 pr-8 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                 >
-                  {categories.map(cat => (
+                  {categories.map((cat) => (
                     <option key={cat} value={cat}>
-                      {cat === 'all' ? 'All Categories' : cat}
+                      {cat}
                     </option>
                   ))}
                 </select>
               </div>
-
-              {/* Status Filter */}
-              <div className="md:col-span-2">
-                <select
-                  value={selectedStatus}
-                  onChange={(e) => setSelectedStatus(e.target.value)}
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-all outline-none appearance-none bg-white"
-                >
-                  <option value="all">All Status</option>
-                  <option value="Open">Open</option>
-                  <option value="Full">Full</option>
-                </select>
-              </div>
-
-              {/* Sort */}
-              <div className="md:col-span-2">
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value)}
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-all outline-none appearance-none bg-white"
-                >
-                  <option value="recent">Most Recent</option>
-                  <option value="popular">Most Popular</option>
-                  <option value="members">Most Members</option>
-                </select>
-              </div>
             </div>
 
-            {/* Active Filters */}
-            {(selectedCategory !== 'all' || selectedStatus !== 'all' || searchQuery) && (
-              <div className="mt-4 flex flex-wrap gap-2">
-                <span className="text-sm text-gray-600">Active filters:</span>
-                {selectedCategory !== 'all' && (
-                  <span className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-sm font-medium flex items-center gap-1">
-                    {selectedCategory}
-                    <button onClick={() => setSelectedCategory('all')} className="hover:text-indigo-900">×</button>
-                  </span>
-                )}
-                {selectedStatus !== 'all' && (
-                  <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-medium flex items-center gap-1">
-                    {selectedStatus}
-                    <button onClick={() => setSelectedStatus('all')} className="hover:text-green-900">×</button>
-                  </span>
-                )}
-                {searchQuery && (
-                  <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm font-medium flex items-center gap-1">
-                    "{searchQuery}"
-                    <button onClick={() => setSearchQuery('')} className="hover:text-purple-900">×</button>
-                  </span>
-                )}
-                <button 
-                  onClick={() => {
-                    setSelectedCategory('all');
-                    setSelectedStatus('all');
-                    setSearchQuery('');
-                  }}
-                  className="text-sm text-indigo-600 hover:text-indigo-700 font-semibold"
+            <div className="flex items-center gap-3">
+              <select
+                value={selectedStatus}
+                onChange={(e) => setSelectedStatus(e.target.value)}
+                className="px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              >
+                <option value="all">All Status</option>
+                <option value="Hiring">Hiring</option>
+                <option value="In Progress">In Progress</option>
+                <option value="Completed">Completed</option>
+                <option value="Idea">Idea</option>
+              </select>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              >
+                <option value="recent">Most Recent</option>
+                <option value="popular">Most Popular</option>
+                <option value="trending">Trending</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Loading State */}
+        {loading ? (
+          <div className="flex justify-center items-center py-20">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+              <div className="text-indigo-600 font-semibold text-lg">Loading projects...</div>
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* Project Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {projects.map((project) => (
+                <div
+                  key={project._id}
+                  onClick={() => handleProjectClick(project._id)}
+                  className="bg-white rounded-2xl shadow-md hover:shadow-xl transition-all border border-gray-100 overflow-hidden cursor-pointer transform hover:scale-105"
                 >
-                  Clear all
+                  <div className="p-5">
+                    <div className="flex items-center justify-between mb-2">
+                      <span
+                        className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(project.status)}`}
+                      >
+                        {project.status}
+                      </span>
+                      {project.tags && project.tags.length > 0 && (
+                        <span className="px-3 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700">
+                          {project.tags[0]}
+                        </span>
+                      )}
+                    </div>
+
+                    <h2 className="text-xl font-semibold text-gray-900 mb-2 line-clamp-1">
+                      {project.title}
+                    </h2>
+                    <p className="text-gray-600 text-sm mb-4 line-clamp-3">
+                      {project.description}
+                    </p>
+
+                    {project.required_skills && project.required_skills.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mb-4">
+                        {project.required_skills.slice(0, 4).map((skill, idx) => (
+                          <span
+                            key={idx}
+                            className="px-2.5 py-1 bg-indigo-50 text-indigo-700 text-xs rounded-lg font-medium"
+                          >
+                            {skill}
+                          </span>
+                        ))}
+                        {project.required_skills.length > 4 && (
+                          <span className="px-2.5 py-1 bg-gray-100 text-gray-600 text-xs rounded-lg font-medium">
+                            +{project.required_skills.length - 4}
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="flex items-center justify-between text-sm text-gray-500">
+                      <div className="flex items-center gap-1">
+                        <Users size={15} /> {project.member_count || 0}
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Heart size={15} /> {project.upvote_count || 0}
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Eye size={15} /> {project.views || 0}
+                      </div>
+                    </div>
+
+                    <div className="mt-4 border-t pt-3 text-sm text-gray-500 flex items-center justify-between">
+                      <div>
+                        <span className="font-medium text-gray-700">
+                          {project.owner_id?.name || 'Unknown'}
+                        </span>
+                        {project.owner_id?.college && (
+                          <> • {project.owner_id.college}</>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Clock size={14} /> {getTimeAgo(project.created_at)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* No Results */}
+            {projects.length === 0 && !loading && (
+              <div className="text-center py-20">
+                <div className="text-6xl mb-4">🔍</div>
+                <p className="text-gray-500 text-lg mb-2">No projects found</p>
+                <p className="text-gray-400 text-sm">Try adjusting your search or filters</p>
+              </div>
+            )}
+
+            {/* Pagination */}
+            {totalCount > 12 && (
+              <div className="flex justify-center items-center gap-4 mt-8">
+                <button
+                  onClick={() => setPage(Math.max(1, page - 1))}
+                  disabled={page === 1}
+                  className="px-4 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Previous
+                </button>
+                <span className="text-gray-600">
+                  Page {page} of {Math.ceil(totalCount / 12)}
+                </span>
+                <button
+                  onClick={() => setPage(page + 1)}
+                  disabled={page >= Math.ceil(totalCount / 12)}
+                  className="px-4 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Next
                 </button>
               </div>
             )}
-          </div>
-        </div>
-
-        {/* Projects Grid */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredProjects.map(project => (
-            <div 
-              key={project.id} 
-              className="bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all transform hover:-translate-y-1 overflow-hidden group cursor-pointer"
-            >
-              {/* Project Header */}
-              <div className="p-6 border-b border-gray-100">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex-1">
-                    <h3 className="text-xl font-bold text-gray-900 mb-2 group-hover:text-indigo-600 transition-colors">
-                      {project.title}
-                    </h3>
-                    <p className="text-sm text-gray-600 line-clamp-2 mb-3">
-                      {project.description}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Badges */}
-                <div className="flex flex-wrap gap-2 mb-3">
-                  <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                    project.status === 'Open' 
-                      ? 'bg-green-100 text-green-700' 
-                      : 'bg-gray-100 text-gray-700'
-                  }`}>
-                    {project.status}
-                  </span>
-                  <span className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-xs font-semibold">
-                    {project.category}
-                  </span>
-                  <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getDifficultyColor(project.difficulty)}`}>
-                    {project.difficulty}
-                  </span>
-                </div>
-
-                {/* Skills */}
-                <div className="flex flex-wrap gap-2">
-                  {project.skills.slice(0, 3).map((skill, idx) => (
-                    <span key={idx} className="px-2 py-1 bg-gray-100 text-gray-700 rounded-md text-xs font-medium">
-                      {skill}
-                    </span>
-                  ))}
-                  {project.skills.length > 3 && (
-                    <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded-md text-xs font-medium">
-                      +{project.skills.length - 3} more
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {/* Project Footer */}
-              <div className="px-6 py-4 bg-gray-50">
-                <div className="flex items-center justify-between text-sm text-gray-600 mb-3">
-                  <div className="flex items-center gap-4">
-                    <span className="flex items-center gap-1">
-                      <Users size={16} />
-                      {project.members}/{project.maxMembers}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Heart size={16} />
-                      {project.likes}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Eye size={16} />
-                      {project.views}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div className="text-xs text-gray-500">
-                    <div className="font-semibold text-gray-700">{project.author}</div>
-                    <div>{project.college} • {project.createdAt}</div>
-                  </div>
-                  <button className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition-all text-sm">
-                    View Details
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* No Results */}
-        {filteredProjects.length === 0 && (
-          <div className="text-center py-16">
-            <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Search className="text-gray-400" size={40} />
-            </div>
-            <h3 className="text-2xl font-bold text-gray-900 mb-2">No projects found</h3>
-            <p className="text-gray-600 mb-6">Try adjusting your filters or search query</p>
-            <button 
-              onClick={() => {
-                setSelectedCategory('all');
-                setSelectedStatus('all');
-                setSearchQuery('');
-              }}
-              className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 transition-all"
-            >
-              Clear Filters
-            </button>
-          </div>
+          </>
         )}
       </div>
     </div>
