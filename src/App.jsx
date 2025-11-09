@@ -59,7 +59,7 @@ function App() {
   const [isLogin, setIsLogin] = useState(false);
   const [userData, setuserData] = useState(null);
 
-  const apiUrl = 'https://server-campus-hive.vercel.app/' ||  import.meta.env.VITE_API_URL;
+  const apiUrl = 'https://server-campus-hive.vercel.app' ||  import.meta.env.VITE_API_URL;
 
   useEffect(() => {
 
