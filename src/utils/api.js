@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const apiUrl = import.meta.env.VITE_API_URL;
+const apiUrl = 'https://server-campus-hive.vercel.app/' || import.meta.env.VITE_API_URL;
 
 // ============================================
 // GENERIC API UTILITIES
